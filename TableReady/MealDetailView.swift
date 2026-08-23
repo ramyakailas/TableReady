@@ -15,21 +15,23 @@ struct MenuDetailView: View {
                 HStack {
                     Image(systemName: "list.clipboard")
                         .font(.title)
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(AppTheme.turmeric)
                         .frame(width: 56, height: 56)
-                        .background(Color.accentColor.opacity(0.15))
+                        .background(AppTheme.turmeric.opacity(0.2))
                         .clipShape(RoundedRectangle(cornerRadius: 14))
 
                     Text("Menu #\(menu.id)")
                         .font(.title2)
                         .fontWeight(.bold)
+                        .foregroundColor(AppTheme.chaiBrown)
                     Spacer()
                 }
                 .padding()
                 .background(
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(.secondarySystemGroupedBackground))
+                        .fill(AppTheme.cardGradient)
                 )
+                .shadow(color: AppTheme.cardShadowColor, radius: AppTheme.cardShadowRadius, x: 0, y: AppTheme.cardShadowY)
 
                 // Quick stats
                 HStack(spacing: 0) {
@@ -42,22 +44,24 @@ struct MenuDetailView: View {
                 .padding()
                 .background(
                     RoundedRectangle(cornerRadius: 14)
-                        .fill(Color(.secondarySystemGroupedBackground))
+                        .fill(AppTheme.cardGradient)
                 )
+                .shadow(color: AppTheme.cardShadowColor, radius: AppTheme.cardShadowRadius, x: 0, y: AppTheme.cardShadowY)
 
                 // Items
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Items")
                         .font(.headline)
+                        .foregroundColor(AppTheme.chaiBrown)
 
                     ForEach(Array(menu.items.enumerated()), id: \.offset) { index, item in
                         HStack(spacing: 12) {
                             Text("\(index + 1)")
                                 .font(.caption)
                                 .fontWeight(.bold)
-                                .foregroundColor(.accentColor)
+                                .foregroundColor(AppTheme.chaiBrown)
                                 .frame(width: 24, height: 24)
-                                .background(Color.accentColor.opacity(0.1))
+                                .background(AppTheme.turmeric.opacity(0.15))
                                 .clipShape(Circle())
                             Text(item)
                                 .font(.body)
@@ -67,14 +71,15 @@ struct MenuDetailView: View {
                         .padding(.horizontal, 12)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(Color(.secondarySystemGroupedBackground))
+                                .fill(AppTheme.cardGradient)
                         )
+                        .shadow(color: AppTheme.cardShadowColor, radius: 3, x: 0, y: 2)
                     }
                 }
             }
             .padding()
         }
-        .background(Color(.systemGroupedBackground))
+        .background(AppTheme.warmCream)
         .navigationTitle("Menu Details")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -90,13 +95,13 @@ struct StatBox: View {
         VStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.caption)
-                .foregroundColor(.accentColor)
+                .foregroundColor(AppTheme.chaiBrown)
             Text(value)
                 .font(.title3)
                 .fontWeight(.bold)
             Text(label)
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .foregroundColor(AppTheme.chaiBrownMuted)
         }
         .frame(maxWidth: .infinity)
     }

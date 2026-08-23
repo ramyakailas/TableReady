@@ -16,7 +16,7 @@ struct FamilyView: View {
                         Text(member.emoji)
                             .font(.largeTitle)
                             .frame(width: 50, height: 50)
-                            .background(Color.accentColor.opacity(0.1))
+                            .background(AppTheme.turmeric.opacity(0.15))
                             .clipShape(Circle())
 
                         VStack(alignment: .leading, spacing: 4) {
@@ -25,23 +25,27 @@ struct FamilyView: View {
                             if !member.dietaryNotes.isEmpty {
                                 Label(member.dietaryNotes, systemImage: "exclamationmark.triangle")
                                     .font(.caption)
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(AppTheme.saffronText)
                             }
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.caption)
                             .foregroundStyle(.tertiary)
+                            .accessibilityHidden(true)
                     }
                     .padding(.vertical, 4)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(AppTheme.warmCream)
             .navigationTitle("Family")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: {}) {
                         Image(systemName: "plus")
                     }
+                    .accessibilityLabel("Add Family Member")
                 }
             }
         }

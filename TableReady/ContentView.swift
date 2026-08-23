@@ -13,17 +13,37 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            Tab("Menu", systemImage: "calendar", value: 0) {
-                WeeklyMenuView()
-            }
+            WeeklyMenuView()
+                .tabItem {
+                    Label("Menu", systemImage: "calendar")
+                }
+                .tag(0)
 
-            Tab("Groceries", systemImage: "cart", value: 1) {
-                GroceryListView(items: store.groceryItems)
-            }
+            GroceryListView(items: store.groceryItems)
+                .tabItem {
+                    Label("Groceries", systemImage: "cart")
+                }
+                .tag(1)
 
-            Tab("Family", systemImage: "person.3", value: 2) {
-                FamilyView(members: SampleData.familyMembers)
-            }
+            DishLibraryView()
+                .tabItem {
+                    Label("Dishes", systemImage: "book")
+                }
+                .tag(2)
+
+            FamilyView(members: SampleData.familyMembers)
+                .tabItem {
+                    Label("Family", systemImage: "person.3")
+                }
+                .tag(3)
+        }
+        .tint(AppTheme.chaiBrown)
+        .onAppear {
+            let appearance = UITabBarAppearance()
+            appearance.configureWithDefaultBackground()
+            appearance.backgroundColor = UIColor(AppTheme.warmCream)
+            UITabBar.appearance().standardAppearance = appearance
+            UITabBar.appearance().scrollEdgeAppearance = appearance
         }
     }
 }

@@ -15,6 +15,7 @@ struct TableReadyApp: App {
         WindowGroup {
             ContentView()
                 .environment(store)
+                .accentColor(AppTheme.turmeric)
         }
     }
 }

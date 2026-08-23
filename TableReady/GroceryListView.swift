@@ -18,14 +18,16 @@ struct GroceryListView: View {
                 if items.isEmpty {
                     ContentUnavailableView {
                         Label("No Items", systemImage: "cart")
+                            .foregroundColor(AppTheme.chaiBrown)
                     } description: {
                         Text("Items from your weekly menus will appear here")
+                            .foregroundColor(AppTheme.chaiBrownMuted)
                     }
                 } else {
                     List {
                         Section {
                             ProgressView(value: Double(purchasedCount), total: Double(items.count))
-                                .tint(.green)
+                                .tint(AppTheme.herbGreen)
                             Text("\(purchasedCount) of \(items.count) items purchased")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -43,6 +45,8 @@ struct GroceryListView: View {
                             }
                         }
                     }
+                    .scrollContentBackground(.hidden)
+                    .background(AppTheme.warmCream)
                 }
             }
             .navigationTitle("Grocery List")
@@ -62,6 +66,7 @@ struct GroceryListView: View {
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
+                    .accessibilityLabel("List Actions")
                 }
             })
         }
@@ -79,8 +84,9 @@ struct GroceryRowView: View {
         } label: {
             HStack {
                 Image(systemName: item.isPurchased ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(item.isPurchased ? .green : .secondary)
+                    .foregroundColor(item.isPurchased ? AppTheme.herbGreen : .secondary)
                     .font(.title3)
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading) {
                     Text(item.name)
                         .strikethrough(item.isPurchased)
@@ -94,6 +100,8 @@ struct GroceryRowView: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(item.name)
+        .accessibilityValue(item.isPurchased ? "Purchased" : "Not purchased")
     }
 }
 

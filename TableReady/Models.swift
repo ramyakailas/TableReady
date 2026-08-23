@@ -97,6 +97,71 @@ enum DayOfWeek: Int, CaseIterable, Identifiable, Codable {
     }
 }
 
+// MARK: - Dish Category
+
+enum DishCategory: String, Codable, CaseIterable, Identifiable {
+    case curry, bread, rice, snack, drink, side
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        rawValue.capitalized
+    }
+
+    var icon: String {
+        switch self {
+        case .curry: return "cup.and.saucer.fill"
+        case .bread: return "circle.grid.cross.fill"
+        case .rice: return "bowl.fill"
+        case .snack: return "flame.fill"
+        case .drink: return "mug.fill"
+        case .side: return "leaf.fill"
+        }
+    }
+
+    /// Auto-detect category from a dish name using keyword matching
+    static func categorize(_ name: String) -> DishCategory {
+        let lower = name.lowercased()
+        if lower.contains("chapathi") || lower.contains("paratha") || lower.contains("roti")
+            || lower.contains("thepla") || lower.contains("cheela") || lower.contains("naan") {
+            return .bread
+        }
+        if lower.contains("rice") || lower.contains("khichdi") || lower.contains("biryani")
+            || lower.contains("poha") || lower.contains("pulao") {
+            return .rice
+        }
+        if lower.contains("chai") || lower.contains("tea") || lower.contains("coffee")
+            || lower.contains("lassi") || lower.contains("pani") {
+            return .drink
+        }
+        if lower.contains("manchurian") || lower.contains("pakod") || lower.contains("roll")
+            || lower.contains("sandwich") || lower.contains("paddu") || lower.contains("muthiya")
+            || lower.contains("puri") {
+            return .snack
+        }
+        if lower.contains("salad") || lower.contains("raita") || lower.contains("chutney")
+            || lower.contains("dip") || lower.contains("pickle") {
+            return .side
+        }
+        // Default: curry covers dal, paneer, sabzi, gravy dishes, etc.
+        return .curry
+    }
+}
+
+// MARK: - Dish
+
+struct Dish: Identifiable, Codable, Hashable {
+    var id: UUID
+    var name: String
+    var category: DishCategory
+
+    init(id: UUID = UUID(), name: String, category: DishCategory? = nil) {
+        self.id = id
+        self.name = name
+        self.category = category ?? DishCategory.categorize(name)
+    }
+}
+
 // MARK: - Family Member
 
 struct FamilyMember: Identifiable {
@@ -221,14 +286,6 @@ struct MenuParser {
         }
 
         return menus
-    }
-
-    /// Loads and parses a .md file from a given file path
-    static func loadFromFile(at path: String) -> [DayMenu] {
-        guard let content = try? String(contentsOfFile: path, encoding: .utf8) else {
-            return []
-        }
-        return parse(content)
     }
 }
 

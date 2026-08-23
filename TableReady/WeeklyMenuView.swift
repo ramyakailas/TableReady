@@ -8,8 +8,9 @@ import SwiftUI
 struct WeeklyMenuView: View {
     @Environment(MenuStore.self) private var store
     @State private var selectedDay: DayOfWeek = .sunday
-    @State private var showWeeklyOverview = false
+    @State private var showWeeklyOverview = true
     @State private var showAddMenu = false
+    @State private var showCustomBuilder = false
     @State private var dayForMenuPicker: DayOfWeek?
 
     var body: some View {
@@ -24,11 +25,21 @@ struct WeeklyMenuView: View {
             .navigationTitle(showWeeklyOverview ? "Weekly Overview" : "This Week")
             .toolbar(content: {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showAddMenu = true
+                    Menu {
+                        Button {
+                            showAddMenu = true
+                        } label: {
+                            Label("Quick Menu", systemImage: "plus.circle")
+                        }
+                        Button {
+                            showCustomBuilder = true
+                        } label: {
+                            Label("Build from Dishes", systemImage: "book")
+                        }
                     } label: {
                         Image(systemName: "plus")
                     }
+                    .accessibilityLabel("Add Menu")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -38,10 +49,15 @@ struct WeeklyMenuView: View {
                     } label: {
                         Image(systemName: showWeeklyOverview ? "calendar.day.timeline.left" : "calendar")
                     }
+                    .accessibilityLabel(showWeeklyOverview ? "Switch to Day View" : "Switch to Weekly Overview")
                 }
             })
             .sheet(isPresented: $showAddMenu) {
                 AddMenuView()
+                    .environment(store)
+            }
+            .sheet(isPresented: $showCustomBuilder) {
+                CustomMenuBuilderView()
                     .environment(store)
             }
             .sheet(item: $dayForMenuPicker) { day in
@@ -57,78 +73,182 @@ struct WeeklyMenuView: View {
 struct WeeklyOverviewGrid: View {
     @Environment(MenuStore.self) private var store
     @Binding var dayForMenuPicker: DayOfWeek?
+    @State private var expandedDay: DayOfWeek?
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 12) {
+            VStack(spacing: 16) {
                 ForEach(DayOfWeek.allCases) { day in
                     let dayPlan = store.weeklyPlan.first(where: { $0.dayOfWeek == day })
-                    WeeklyDayCard(day: day, menu: dayPlan?.menu)
-                        .onTapGesture {
+                    WeeklyDayCard(
+                        day: day,
+                        menu: dayPlan?.menu,
+                        isExpanded: expandedDay == day,
+                        onTapHeader: {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                expandedDay = (expandedDay == day) ? nil : day
+                            }
+                        },
+                        onAssignMenu: {
                             dayForMenuPicker = day
+                        },
+                        onClearDay: {
+                            store.clearDay(day)
                         }
+                    )
                 }
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(AppTheme.offWhiteBackground)
     }
 }
 
 struct WeeklyDayCard: View {
     let day: DayOfWeek
     let menu: DayMenu?
+    var isExpanded: Bool = false
+    var onTapHeader: (() -> Void)? = nil
+    var onAssignMenu: (() -> Void)? = nil
+    var onClearDay: (() -> Void)? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(day.name)
-                    .font(.headline)
-                Spacer()
-                if let menu {
-                    EffortBadge(effort: menu.effort)
-                }
-            }
+        VStack(alignment: .leading, spacing: 0) {
+            // Day header row
+            dayHeaderRow
 
+            // Content: items with left bracket
             if let menu {
-                HStack(spacing: 14) {
-                    Label("Menu #\(menu.id)", systemImage: "list.clipboard")
-                        .font(.subheadline)
-                        .foregroundColor(.accentColor)
-                    Label("\(menu.breadCount) breads", systemImage: "birthday.cake")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Label("\(menu.chaiCount) chai", systemImage: "cup.and.saucer.fill")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-
-                let preview = menu.items.prefix(3)
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(Array(preview.enumerated()), id: \.offset) { _, item in
-                        Text("• \(item)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                    }
-                    if menu.items.count > 3 {
-                        Text("+ \(menu.items.count - 3) more")
-                            .font(.caption2)
-                            .foregroundColor(.accentColor)
-                    }
-                }
+                dayContentWithBracket(menu: menu)
             } else {
-                Text("Tap to assign a menu")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .italic()
+                emptyDayContent
             }
         }
-        .padding()
         .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color(.secondarySystemGroupedBackground))
+            RoundedRectangle(cornerRadius: AppTheme.dayCardCornerRadius)
+                .fill(AppTheme.flatCardWhite)
         )
+        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.dayCardCornerRadius))
+    }
+
+    // MARK: - Day Header
+
+    private var dayHeaderRow: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(day.name)
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(AppTheme.chaiBrown)
+
+                if let menu {
+                    Text("Menu #\(menu.id) \u{00B7} \(menu.items.count) items")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.chaiBrownMuted)
+                }
+            }
+
+            Spacer()
+
+            Button {
+                onAssignMenu?()
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(AppTheme.chaiBrown.opacity(0.75))
+                    .frame(width: 44, height: 44)
+                    .background(AppTheme.chaiBrown.opacity(0.06))
+                    .clipShape(Circle())
+            }
+            .accessibilityLabel("Assign menu to \(day.name)")
+
+            if menu != nil {
+                Menu {
+                    Button {
+                        onAssignMenu?()
+                    } label: {
+                        Label("Change Menu", systemImage: "arrow.triangle.2.circlepath")
+                    }
+
+                    Button(role: .destructive) {
+                        onClearDay?()
+                    } label: {
+                        Label("Clear Day", systemImage: "xmark.circle")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(AppTheme.chaiBrown.opacity(0.75))
+                        .frame(width: 44, height: 44)
+                        .background(AppTheme.chaiBrown.opacity(0.06))
+                        .clipShape(Circle())
+                }
+                .accessibilityLabel("More options for \(day.name)")
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 10)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onTapHeader?()
+        }
+    }
+
+    // MARK: - Content with Left Bracket
+
+    private func dayContentWithBracket(menu: DayMenu) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            // Left bracket
+            LeftBracket()
+                .padding(.leading, 16)
+
+            // Items list
+            VStack(alignment: .leading, spacing: 0) {
+                let itemsToShow = isExpanded ? menu.items : Array(menu.items.prefix(3))
+                ForEach(Array(itemsToShow.enumerated()), id: \.offset) { _, item in
+                    CroutonMenuItemRow(item: item)
+                }
+
+                if !isExpanded && menu.items.count > 3 {
+                    Text("+ \(menu.items.count - 3) more")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(AppTheme.chaiBrown)
+                        .padding(.leading, 12)
+                        .padding(.vertical, 6)
+                }
+
+                // Bread & chai stats
+                HStack(spacing: 12) {
+                    Label("\(menu.breadCount) breads", systemImage: "circle.grid.cross.fill")
+                        .font(.caption2)
+                        .foregroundColor(AppTheme.chaiBrownMuted)
+                    Label("\(menu.chaiCount) chai", systemImage: "cup.and.saucer.fill")
+                        .font(.caption2)
+                        .foregroundColor(AppTheme.chaiBrownMuted)
+                }
+                .padding(.leading, 12)
+                .padding(.top, 4)
+                .padding(.bottom, 14)
+            }
+        }
+    }
+
+    // MARK: - Empty Day Content
+
+    private var emptyDayContent: some View {
+        HStack {
+            Text("No menu assigned")
+                .font(.subheadline)
+                .foregroundColor(AppTheme.chaiBrownMuted)
+                .italic()
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 14)
     }
 }
 
@@ -159,7 +279,7 @@ struct DayDetailView: View {
                 .padding(.horizontal)
                 .padding(.vertical, 8)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(AppTheme.warmCream)
 
             // Menu for selected day
             if let dayPlan = store.weeklyPlan.first(where: { $0.dayOfWeek == selectedDay }),
@@ -191,13 +311,16 @@ struct DayDetailView: View {
             } else {
                 ContentUnavailableView {
                     Label("No Menu Assigned", systemImage: "fork.knife")
+                        .foregroundColor(AppTheme.chaiBrown)
                 } description: {
                     Text("No menu is set for \(selectedDay.name)")
+                        .foregroundColor(AppTheme.chaiBrownMuted)
                 } actions: {
                     Button("Set Menu") {
                         dayForMenuPicker = selectedDay
                     }
                     .buttonStyle(.borderedProminent)
+                    .tint(AppTheme.chaiBrown)
                 }
             }
         }
@@ -209,12 +332,19 @@ struct DayDetailView: View {
 struct MenuPickerView: View {
     @Environment(MenuStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @State private var showCustomBuilder = false
     let day: DayOfWeek
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
+                    Button {
+                        showCustomBuilder = true
+                    } label: {
+                        Label("Build Custom Menu", systemImage: "book")
+                    }
+
                     Button(role: .destructive) {
                         store.clearDay(day)
                         dismiss()
@@ -239,12 +369,9 @@ struct MenuPickerView: View {
                                         .lineLimit(1)
                                 }
                                 Spacer()
-                                VStack(alignment: .trailing, spacing: 2) {
-                                    EffortBadge(effort: menu.effort)
-                                    Text("\(menu.breadCount) breads")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                }
+                                Text("\(menu.breadCount) breads")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
                             }
                         }
                         .foregroundColor(.primary)
@@ -257,6 +384,10 @@ struct MenuPickerView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
+            }
+            .sheet(isPresented: $showCustomBuilder) {
+                CustomMenuBuilderView(assignDay: day)
+                    .environment(store)
             }
         }
     }
@@ -277,18 +408,79 @@ struct DayTab: View {
                     .font(.caption)
                     .fontWeight(.medium)
                 Circle()
-                    .fill(isSelected ? Color.accentColor : (hasMenu ? Color.secondary.opacity(0.3) : Color.clear))
+                    .fill(isSelected ? Color.white : (hasMenu ? AppTheme.chaiBrown.opacity(0.3) : Color.clear))
                     .frame(width: 6, height: 6)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+                    .fill(isSelected ? AnyShapeStyle(AppTheme.tabSelectedGradient) : AnyShapeStyle(Color.clear))
+                    .shadow(color: isSelected ? AppTheme.cardShadowColor : .clear, radius: 4, x: 0, y: 2)
             )
         }
         .buttonStyle(.plain)
-        .foregroundColor(isSelected ? .accentColor : .secondary)
+        .foregroundColor(isSelected ? .white : AppTheme.chaiBrownMuted)
+        .accessibilityLabel("\(day.name)\(hasMenu ? ", menu assigned" : ", no menu")")
+    }
+}
+
+// MARK: - Crouton-Style Components
+
+struct BracketShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let midY = rect.midY
+        let curveDepth: CGFloat = rect.width * 0.8
+        let endInset: CGFloat = 6
+
+        path.move(to: CGPoint(x: rect.maxX, y: rect.minY + endInset))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX - curveDepth, y: midY),
+            control: CGPoint(x: rect.maxX - curveDepth, y: rect.minY + endInset)
+        )
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX, y: rect.maxY - endInset),
+            control: CGPoint(x: rect.maxX - curveDepth, y: rect.maxY - endInset)
+        )
+
+        return path
+    }
+}
+
+struct LeftBracket: View {
+    var body: some View {
+        BracketShape()
+            .stroke(AppTheme.bracketColor, lineWidth: AppTheme.bracketLineWidth)
+            .frame(width: 8)
+            .padding(.vertical, 6)
+    }
+}
+
+struct CroutonMenuItemRow: View {
+    let item: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(AppTheme.thumbnailColor(for: item))
+                    .frame(width: AppTheme.thumbnailSize, height: AppTheme.thumbnailSize)
+
+                Image(systemName: AppTheme.foodIcon(for: item))
+                    .font(.system(size: 14))
+                    .foregroundColor(AppTheme.chaiBrown.opacity(0.6))
+            }
+
+            Text(item)
+                .font(.subheadline)
+                .foregroundColor(AppTheme.chaiBrown)
+                .lineLimit(2)
+
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
     }
 }
 
@@ -299,31 +491,29 @@ struct MenuHeaderView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Menu #\(menu.id)")
-                    .font(.title3)
-                    .fontWeight(.bold)
-                Spacer()
-                EffortBadge(effort: menu.effort)
-            }
+            Text("Menu #\(menu.id)")
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundColor(AppTheme.chaiBrown)
 
             HStack(spacing: 16) {
                 Label("\(menu.breadCount) breads", systemImage: "birthday.cake")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(AppTheme.chaiBrownMuted)
                 Label("\(menu.chaiCount) chai", systemImage: "cup.and.saucer.fill")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(AppTheme.chaiBrownMuted)
                 Label("\(menu.items.count) items", systemImage: "list.bullet")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(AppTheme.chaiBrownMuted)
             }
         }
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(AppTheme.flatCardWhite)
         )
+        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
     }
 }
 
@@ -333,11 +523,7 @@ struct EffortBadge: View {
     let effort: MenuEffort
 
     var badgeColor: Color {
-        switch effort {
-        case .light: return .green
-        case .medium: return .orange
-        case .heavy: return .red
-        }
+        AppTheme.effortColor(for: effort)
     }
 
     var body: some View {
@@ -346,8 +532,8 @@ struct EffortBadge: View {
             .fontWeight(.medium)
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .background(badgeColor.opacity(0.15))
-            .foregroundColor(badgeColor)
+            .background(badgeColor.opacity(0.25))
+            .foregroundColor(AppTheme.effortTextColor(for: effort))
             .clipShape(Capsule())
     }
 }
@@ -359,9 +545,9 @@ struct MenuItemsListView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Today's Items")
+            Text("Menu Items")
                 .font(.headline)
-                .foregroundColor(.secondary)
+                .foregroundColor(AppTheme.chaiBrown)
 
             ForEach(Array(menu.items.enumerated()), id: \.offset) { index, item in
                 MenuItemRow(item: item, index: index + 1)
@@ -376,24 +562,23 @@ struct MenuItemRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Text("\(index)")
-                .font(.caption)
-                .fontWeight(.bold)
-                .foregroundColor(.accentColor)
-                .frame(width: 24, height: 24)
-                .background(Color.accentColor.opacity(0.1))
-                .clipShape(Circle())
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(AppTheme.thumbnailColor(for: item))
+                    .frame(width: AppTheme.thumbnailSize, height: AppTheme.thumbnailSize)
+
+                Image(systemName: AppTheme.foodIcon(for: item))
+                    .font(.system(size: 14))
+                    .foregroundColor(AppTheme.chaiBrown.opacity(0.6))
+            }
 
             Text(item)
                 .font(.body)
 
             Spacer()
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .padding(.vertical, 6)
+        .padding(.horizontal, 12)
     }
 }
 
@@ -417,22 +602,43 @@ struct MenuItemRow: View {
         .environment(MenuStore(sampleData: true))
 }
 
-#Preview("Weekly Day Card - With Menu") {
-    WeeklyDayCard(day: .sunday, menu: SampleData.menus[0])
-        .padding()
+#Preview("Day Card - Expanded") {
+    WeeklyDayCard(
+        day: .sunday,
+        menu: SampleData.menus[0],
+        isExpanded: true
+    )
+    .padding()
+    .background(AppTheme.offWhiteBackground)
 }
 
-#Preview("Weekly Day Card - No Menu") {
+#Preview("Day Card - Collapsed") {
+    WeeklyDayCard(
+        day: .monday,
+        menu: SampleData.menus[1],
+        isExpanded: false
+    )
+    .padding()
+    .background(AppTheme.offWhiteBackground)
+}
+
+#Preview("Day Card - No Menu") {
     WeeklyDayCard(day: .saturday, menu: nil)
         .padding()
+        .background(AppTheme.offWhiteBackground)
 }
 
-#Preview("Empty Week") {
-    WeeklyMenuView()
-        .environment(MenuStore(sampleData: true))
+#Preview("Crouton Item Rows") {
+    VStack(spacing: 0) {
+        CroutonMenuItemRow(item: "Dal khichdi with garlic / ginger and pepper")
+        CroutonMenuItemRow(item: "Gobi manchurian / Street side fried rice")
+        CroutonMenuItemRow(item: "10 chapathis palak paneer for dinner")
+        CroutonMenuItemRow(item: "5 parathas")
+    }
+    .padding()
 }
 
-#Preview("Effort Badge") {
+#Preview("Effort Badges") {
     HStack(spacing: 12) {
         EffortBadge(effort: .light)
         EffortBadge(effort: .medium)

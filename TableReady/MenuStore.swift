@@ -12,10 +12,9 @@ class MenuStore {
 
     var menus: [DayMenu] = []
     var weeklyPlan: [DayPlan] = []
+    var dishes: [Dish] = []
 
     // MARK: - Paths
-
-    private let mdFilePath = "/Users/ramyakailas/Downloads/menus-editable.md"
 
     private var jsonFileURL: URL {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -27,6 +26,7 @@ class MenuStore {
     private struct StoreData: Codable {
         var menus: [DayMenu]
         var weeklyPlan: [DayPlan]
+        var dishes: [Dish]?
     }
 
     // MARK: - Initialization
@@ -40,6 +40,7 @@ class MenuStore {
         if sampleData {
             menus = SampleData.menus
             weeklyPlan = SampleData.weeklyPlan
+            seedDishesFromMenus()
         } else {
             loadData()
         }
@@ -52,13 +53,17 @@ class MenuStore {
            let stored = try? JSONDecoder().decode(StoreData.self, from: data) {
             menus = stored.menus
             weeklyPlan = stored.weeklyPlan
+            dishes = stored.dishes ?? []
+            if dishes.isEmpty {
+                seedDishesFromMenus()
+            }
         } else {
             seedFromMarkdown()
         }
     }
 
     private func seedFromMarkdown() {
-        let loaded = MenuParser.loadFromFile(at: mdFilePath)
+        let loaded = MenuParser.parse(SampleData.sampleMarkdown)
         menus = loaded
 
         let days = DayOfWeek.allCases
@@ -66,13 +71,27 @@ class MenuStore {
             let menu = index < loaded.count ? loaded[index] : nil
             return DayPlan(dayOfWeek: day, menu: menu)
         }
+        seedDishesFromMenus()
         save()
+    }
+
+    private func seedDishesFromMenus() {
+        var seen = Set<String>()
+        for menu in menus {
+            for item in menu.items {
+                let trimmed = item.trimmingCharacters(in: .whitespaces)
+                if !trimmed.isEmpty && !seen.contains(trimmed.lowercased()) {
+                    seen.insert(trimmed.lowercased())
+                    dishes.append(Dish(name: trimmed))
+                }
+            }
+        }
     }
 
     // MARK: - Saving
 
     private func save() {
-        let storeData = StoreData(menus: menus, weeklyPlan: weeklyPlan)
+        let storeData = StoreData(menus: menus, weeklyPlan: weeklyPlan, dishes: dishes)
         if let data = try? JSONEncoder().encode(storeData) {
             try? data.write(to: jsonFileURL, options: .atomic)
         }
@@ -113,6 +132,28 @@ class MenuStore {
         if let index = weeklyPlan.firstIndex(where: { $0.dayOfWeek == day }) {
             weeklyPlan[index].menu = menu
         }
+    }
+
+    // MARK: - Dish Operations
+
+    func addDish(_ dish: Dish) {
+        dishes.append(dish)
+        save()
+    }
+
+    func removeDish(_ dish: Dish) {
+        dishes.removeAll { $0.id == dish.id }
+        save()
+    }
+
+    func buildCustomMenu(from selectedDishes: [Dish], breadCount: Int, chaiCount: Int, assignToDay day: DayOfWeek? = nil) {
+        let menu = DayMenu(
+            id: nextMenuID,
+            breadCount: breadCount,
+            items: selectedDishes.map(\.name),
+            chaiCount: chaiCount
+        )
+        addMenu(menu, assignToDay: day)
     }
 
     // MARK: - Grocery Items (derived)

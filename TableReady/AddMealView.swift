@@ -60,12 +60,17 @@ struct AddMenuView: View {
                         TextField("Add item", text: $newItem)
                         Button(action: addItem) {
                             Image(systemName: "plus.circle.fill")
-                                .foregroundColor(.accentColor)
+                                .foregroundColor(AppTheme.chaiBrown)
+                                .font(.title2)
+                                .frame(minWidth: 44, minHeight: 44)
                         }
                         .disabled(newItem.isEmpty)
+                        .accessibilityLabel("Confirm Add Item")
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(AppTheme.warmCream)
             .navigationTitle("New Menu")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
