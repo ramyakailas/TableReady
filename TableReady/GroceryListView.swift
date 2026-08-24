@@ -51,7 +51,7 @@ struct GroceryListView: View {
             }
             .navigationTitle("Grocery List")
             .toolbar(content: {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Menu {
                         Button("Uncheck All", systemImage: "arrow.counterclockwise") {
                             for i in items.indices {

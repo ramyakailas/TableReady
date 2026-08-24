@@ -72,7 +72,9 @@ struct AddMenuView: View {
             .scrollContentBackground(.hidden)
             .background(AppTheme.warmCream)
             .navigationTitle("New Menu")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

@@ -41,7 +41,7 @@ struct FamilyView: View {
             .background(AppTheme.warmCream)
             .navigationTitle("Family")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button(action: {}) {
                         Image(systemName: "plus")
                     }

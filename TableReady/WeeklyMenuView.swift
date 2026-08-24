@@ -24,7 +24,7 @@ struct WeeklyMenuView: View {
             }
             .navigationTitle(showWeeklyOverview ? "Weekly Overview" : "This Week")
             .toolbar(content: {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .navigation) {
                     Menu {
                         Button {
                             showAddMenu = true
@@ -41,7 +41,7 @@ struct WeeklyMenuView: View {
                     }
                     .accessibilityLabel("Add Menu")
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button {
                         withAnimation(.easeInOut(duration: 0.25)) {
                             showWeeklyOverview.toggle()
@@ -379,7 +379,9 @@ struct MenuPickerView: View {
                 }
             }
             .navigationTitle("Menu for \(day.name)")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

@@ -54,7 +54,7 @@ struct DishLibraryView: View {
             .background(AppTheme.warmCream)
             .navigationTitle("Dish Library")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button {
                         showAddDish = true
                     } label: {
@@ -153,7 +153,9 @@ struct AddDishView: View {
             .scrollContentBackground(.hidden)
             .background(AppTheme.warmCream)
             .navigationTitle("New Dish")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

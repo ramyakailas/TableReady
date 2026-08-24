@@ -81,7 +81,9 @@ struct MenuDetailView: View {
         }
         .background(AppTheme.warmCream)
         .navigationTitle("Menu Details")
+        #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        #endif
     }
 
 }

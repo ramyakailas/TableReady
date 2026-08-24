@@ -166,7 +166,9 @@ struct CustomMenuBuilderView: View {
             .scrollContentBackground(.hidden)
             .background(AppTheme.warmCream)
             .navigationTitle("Build Menu")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

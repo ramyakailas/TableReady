@@ -38,6 +38,7 @@ struct ContentView: View {
                 .tag(3)
         }
         .tint(AppTheme.chaiBrown)
+        #if os(iOS)
         .onAppear {
             let appearance = UITabBarAppearance()
             appearance.configureWithDefaultBackground()
@@ -45,6 +46,7 @@ struct ContentView: View {
             UITabBar.appearance().standardAppearance = appearance
             UITabBar.appearance().scrollEdgeAppearance = appearance
         }
+        #endif
     }
 }
 
