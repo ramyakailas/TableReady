@@ -58,12 +58,14 @@ struct AddMenuView: View {
                     }
                     HStack {
                         TextField("Add item", text: $newItem)
+                            .onSubmit(addItem)
                         Button(action: addItem) {
                             Image(systemName: "plus.circle.fill")
                                 .foregroundColor(AppTheme.chaiBrown)
                                 .font(.title2)
                                 .frame(minWidth: 44, minHeight: 44)
                         }
+                        .buttonStyle(.borderless)
                         .disabled(newItem.isEmpty)
                         .accessibilityLabel("Confirm Add Item")
                     }

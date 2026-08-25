@@ -56,9 +56,30 @@ class MenuStore {
             dishes = stored.dishes ?? []
             if dishes.isEmpty {
                 seedDishesFromMenus()
+            } else {
+                cleanUpDishNames()
             }
         } else {
             seedFromMarkdown()
+        }
+    }
+
+    /// One-time migration for installs that seeded dishes before
+    /// quantity-stripping existed (e.g. "5 parathas" -> "parathas").
+    private func cleanUpDishNames() {
+        var seen = Set<String>()
+        var deduped: [Dish] = []
+        for dish in dishes {
+            let cleaned = Dish.cleanedName(from: dish.name)
+            guard !cleaned.isEmpty, !seen.contains(cleaned.lowercased()) else { continue }
+            seen.insert(cleaned.lowercased())
+            var updated = dish
+            updated.name = cleaned
+            deduped.append(updated)
+        }
+        if deduped != dishes {
+            dishes = deduped
+            save()
         }
     }
 
@@ -79,10 +100,10 @@ class MenuStore {
         var seen = Set<String>()
         for menu in menus {
             for item in menu.items {
-                let trimmed = item.trimmingCharacters(in: .whitespaces)
-                if !trimmed.isEmpty && !seen.contains(trimmed.lowercased()) {
-                    seen.insert(trimmed.lowercased())
-                    dishes.append(Dish(name: trimmed))
+                let cleaned = Dish.cleanedName(from: item)
+                if !cleaned.isEmpty && !seen.contains(cleaned.lowercased()) {
+                    seen.insert(cleaned.lowercased())
+                    dishes.append(Dish(name: cleaned))
                 }
             }
         }

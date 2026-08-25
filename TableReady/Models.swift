@@ -160,6 +160,18 @@ struct Dish: Identifiable, Codable, Hashable {
         self.name = name
         self.category = category ?? DishCategory.categorize(name)
     }
+
+    /// Strips a leading quantity phrase (e.g. "5 ", "1 batch of ", "5-6 ")
+    /// so raw menu item text like "5 parathas" becomes a reusable dish
+    /// name like "parathas" for the Dish Library.
+    static func cleanedName(from rawItem: String) -> String {
+        var name = rawItem.trimmingCharacters(in: .whitespaces)
+        let pattern = #"^\d+(-\d+)?\s+(batch(es)?\s+of\s+)?"#
+        if let range = name.range(of: pattern, options: .regularExpression) {
+            name.removeSubrange(range)
+        }
+        return name.trimmingCharacters(in: .whitespaces)
+    }
 }
 
 // MARK: - Family Member
