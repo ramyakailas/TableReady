@@ -9,8 +9,7 @@ struct CustomMenuBuilderView: View {
     @Environment(MenuStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
-    @State private var selectedDishes: [Dish] = []
-    @State private var breadCount = 0
+    @State private var selectedItems: [MenuItem] = []
     @State private var chaiCount = 2
     @State private var searchText = ""
     @State private var selectedDay: DayOfWeek?
@@ -20,12 +19,15 @@ struct CustomMenuBuilderView: View {
     var assignDay: DayOfWeek?
 
     private var computedEffort: MenuEffort {
-        DayMenu(id: 0, breadCount: breadCount, items: selectedDishes.map(\.name), chaiCount: 0).effort
+        DayMenu(id: 0, items: selectedItems, chaiCount: 0).effort
+    }
+
+    private func isSelected(_ dish: Dish) -> Bool {
+        selectedItems.contains { $0.name.lowercased() == dish.name.lowercased() }
     }
 
     private var availableDishes: [Dish] {
-        let unselectedIDs = Set(selectedDishes.map(\.id))
-        let available = store.dishes.filter { !unselectedIDs.contains($0.id) }
+        let available = store.dishes.filter { !isSelected($0) }
         if searchText.isEmpty {
             return available
         }
@@ -48,35 +50,47 @@ struct CustomMenuBuilderView: View {
     var body: some View {
         NavigationStack {
             List {
-                // Selected dishes section
+                // Selected items section
                 Section {
-                    if selectedDishes.isEmpty {
+                    if selectedItems.isEmpty {
                         Text("Tap dishes below to add them")
                             .font(.subheadline)
                             .foregroundColor(AppTheme.chaiBrown.opacity(0.4))
                             .italic()
                     } else {
-                        ForEach(selectedDishes) { dish in
+                        ForEach($selectedItems) { $item in
                             HStack(spacing: 12) {
                                 ZStack {
                                     Circle()
-                                        .fill(AppTheme.thumbnailColor(for: dish.name))
+                                        .fill(AppTheme.thumbnailColor(for: item.name))
                                         .frame(width: 30, height: 30)
 
-                                    Image(systemName: AppTheme.foodIcon(for: dish.name))
+                                    Image(systemName: AppTheme.foodIcon(for: item.name))
                                         .font(.system(size: 12))
                                         .foregroundColor(AppTheme.chaiBrown.opacity(0.6))
                                 }
 
-                                Text(dish.name)
+                                Text(item.name)
                                     .font(.subheadline)
                                     .foregroundColor(AppTheme.chaiBrown)
 
                                 Spacer()
 
+                                if item.category == .bread {
+                                    Stepper(value: Binding(
+                                        get: { item.quantity ?? 1 },
+                                        set: { item.quantity = $0 }
+                                    ), in: 1...30) {
+                                        Text("\u{00D7}\(item.quantity ?? 1)")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .fixedSize()
+                                }
+
                                 Button {
                                     withAnimation {
-                                        selectedDishes.removeAll { $0.id == dish.id }
+                                        selectedItems.removeAll { $0.id == item.id }
                                     }
                                 } label: {
                                     Image(systemName: "minus.circle.fill")
@@ -90,7 +104,7 @@ struct CustomMenuBuilderView: View {
                     HStack {
                         Text("Your Menu")
                         Spacer()
-                        if !selectedDishes.isEmpty {
+                        if !selectedItems.isEmpty {
                             EffortBadge(effort: computedEffort)
                         }
                     }
@@ -98,7 +112,6 @@ struct CustomMenuBuilderView: View {
 
                 // Settings
                 Section("Settings") {
-                    Stepper("Breads: \(breadCount)", value: $breadCount, in: 0...30)
                     Stepper("Chai: \(chaiCount)", value: $chaiCount, in: 0...10)
 
                     if assignDay == nil {
@@ -118,7 +131,11 @@ struct CustomMenuBuilderView: View {
                             ForEach(availableDishes(for: category)) { dish in
                                 Button {
                                     withAnimation {
-                                        selectedDishes.append(dish)
+                                        selectedItems.append(MenuItem(
+                                            name: dish.name,
+                                            category: dish.category,
+                                            quantity: dish.category == .bread ? 1 : nil
+                                        ))
                                     }
                                 } label: {
                                     HStack(spacing: 12) {
@@ -176,14 +193,13 @@ struct CustomMenuBuilderView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         store.buildCustomMenu(
-                            from: selectedDishes,
-                            breadCount: breadCount,
+                            from: selectedItems,
                             chaiCount: chaiCount,
                             assignToDay: selectedDay
                         )
                         dismiss()
                     }
-                    .disabled(selectedDishes.isEmpty)
+                    .disabled(selectedItems.isEmpty)
                     .fontWeight(.semibold)
                 }
             }

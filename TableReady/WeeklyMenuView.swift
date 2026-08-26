@@ -287,7 +287,7 @@ struct DayDetailView: View {
                 ScrollView {
                     VStack(spacing: 16) {
                         MenuHeaderView(menu: menu)
-                        MenuItemsListView(menu: menu)
+                        MenuItemsListView(day: selectedDay, menu: menu)
 
                         HStack(spacing: 12) {
                             Button {
@@ -363,7 +363,7 @@ struct MenuPickerView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Menu #\(menu.id)")
                                         .font(.headline)
-                                    Text(menu.items.prefix(2).joined(separator: ", "))
+                                    Text(menu.items.prefix(2).map(\.name).joined(separator: ", "))
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                         .lineLimit(1)
@@ -460,21 +460,21 @@ struct LeftBracket: View {
 }
 
 struct CroutonMenuItemRow: View {
-    let item: String
+    let item: MenuItem
 
     var body: some View {
         HStack(spacing: 10) {
             ZStack {
                 Circle()
-                    .fill(AppTheme.thumbnailColor(for: item))
+                    .fill(AppTheme.thumbnailColor(for: item.name))
                     .frame(width: AppTheme.thumbnailSize, height: AppTheme.thumbnailSize)
 
-                Image(systemName: AppTheme.foodIcon(for: item))
+                Image(systemName: AppTheme.foodIcon(for: item.name))
                     .font(.system(size: 14))
                     .foregroundColor(AppTheme.chaiBrown.opacity(0.6))
             }
 
-            Text(item)
+            Text(item.quantity.map { "\($0) \(item.name)" } ?? item.name)
                 .font(.subheadline)
                 .foregroundColor(AppTheme.chaiBrown)
                 .lineLimit(2)
@@ -543,44 +543,175 @@ struct EffortBadge: View {
 // MARK: - Menu Items List
 
 struct MenuItemsListView: View {
+    @Environment(MenuStore.self) private var store
+    let day: DayOfWeek
     let menu: DayMenu
+    @State private var editingCategory: DishCategory?
+
+    private var activeCategories: [DishCategory] {
+        DishCategory.allCases.filter { !menu.items(in: $0).isEmpty }
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Menu Items")
-                .font(.headline)
-                .foregroundColor(AppTheme.chaiBrown)
+        VStack(alignment: .leading, spacing: 20) {
+            ForEach(activeCategories) { category in
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Label(category.displayName, systemImage: category.icon)
+                            .font(.headline)
+                            .foregroundColor(AppTheme.chaiBrown)
+                        Spacer()
+                        Button("Edit") {
+                            editingCategory = category
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(AppTheme.chaiBrown)
+                    }
 
-            ForEach(Array(menu.items.enumerated()), id: \.offset) { index, item in
-                MenuItemRow(item: item, index: index + 1)
+                    ForEach(menu.items(in: category)) { item in
+                        MenuItemRow(item: item)
+                    }
+                }
             }
+
+            if activeCategories.isEmpty {
+                Text("No items yet")
+                    .font(.subheadline)
+                    .foregroundColor(AppTheme.chaiBrownMuted)
+                    .italic()
+            }
+        }
+        .sheet(item: $editingCategory) { category in
+            CategoryItemPickerView(day: day, category: category, currentItems: menu.items(in: category))
+                .environment(store)
         }
     }
 }
 
 struct MenuItemRow: View {
-    let item: String
-    let index: Int
+    let item: MenuItem
 
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(AppTheme.thumbnailColor(for: item))
+                    .fill(AppTheme.thumbnailColor(for: item.name))
                     .frame(width: AppTheme.thumbnailSize, height: AppTheme.thumbnailSize)
 
-                Image(systemName: AppTheme.foodIcon(for: item))
+                Image(systemName: AppTheme.foodIcon(for: item.name))
                     .font(.system(size: 14))
                     .foregroundColor(AppTheme.chaiBrown.opacity(0.6))
             }
 
-            Text(item)
+            Text(item.name)
                 .font(.body)
 
             Spacer()
+
+            if let quantity = item.quantity {
+                Text("\u{00D7}\(quantity)")
+                    .font(.subheadline)
+                    .foregroundColor(AppTheme.chaiBrownMuted)
+            }
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 12)
+    }
+}
+
+// MARK: - Category Item Picker (per-category day editing)
+
+struct CategoryItemPickerView: View {
+    @Environment(MenuStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    let day: DayOfWeek
+    let category: DishCategory
+    @State private var selected: [MenuItem]
+
+    init(day: DayOfWeek, category: DishCategory, currentItems: [MenuItem]) {
+        self.day = day
+        self.category = category
+        _selected = State(initialValue: currentItems)
+    }
+
+    private var availableDishes: [Dish] {
+        store.dishes.filter { $0.category == category }
+    }
+
+    private func isSelected(_ dish: Dish) -> Bool {
+        selected.contains { $0.name.lowercased() == dish.name.lowercased() }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Selected") {
+                    if selected.isEmpty {
+                        Text("None — pick from below")
+                            .foregroundColor(.secondary)
+                    }
+                    ForEach($selected) { $item in
+                        HStack {
+                            Text(item.name)
+                            Spacer()
+                            if category == .bread {
+                                Stepper(value: Binding(
+                                    get: { item.quantity ?? 1 },
+                                    set: { item.quantity = $0 }
+                                ), in: 1...30) {
+                                    Text("\u{00D7}\(item.quantity ?? 1)")
+                                }
+                            }
+                        }
+                    }
+                    .onDelete { offsets in
+                        selected.remove(atOffsets: offsets)
+                    }
+                }
+
+                Section("\(category.displayName) Dishes") {
+                    ForEach(availableDishes) { dish in
+                        Button {
+                            if isSelected(dish) {
+                                selected.removeAll { $0.name.lowercased() == dish.name.lowercased() }
+                            } else {
+                                selected.append(MenuItem(
+                                    name: dish.name,
+                                    category: category,
+                                    quantity: category == .bread ? 1 : nil
+                                ))
+                            }
+                        } label: {
+                            HStack {
+                                Text(dish.name)
+                                Spacer()
+                                if isSelected(dish) {
+                                    Image(systemName: "checkmark")
+                                        .foregroundColor(AppTheme.herbGreen)
+                                }
+                            }
+                        }
+                        .foregroundColor(.primary)
+                    }
+                }
+            }
+            .navigationTitle("Edit \(category.displayName)")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        store.replaceItems(selected, in: category, forDay: day)
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+        }
     }
 }
 
@@ -632,10 +763,10 @@ struct MenuItemRow: View {
 
 #Preview("Crouton Item Rows") {
     VStack(spacing: 0) {
-        CroutonMenuItemRow(item: "Dal khichdi with garlic / ginger and pepper")
-        CroutonMenuItemRow(item: "Gobi manchurian / Street side fried rice")
-        CroutonMenuItemRow(item: "10 chapathis palak paneer for dinner")
-        CroutonMenuItemRow(item: "5 parathas")
+        CroutonMenuItemRow(item: MenuItem(name: "Dal khichdi with garlic / ginger and pepper"))
+        CroutonMenuItemRow(item: MenuItem(name: "Gobi manchurian / Street side fried rice"))
+        CroutonMenuItemRow(item: MenuItem(name: "chapathis palak paneer for dinner", category: .bread, quantity: 10))
+        CroutonMenuItemRow(item: MenuItem(name: "parathas", category: .bread, quantity: 5))
     }
     .padding()
 }
@@ -660,12 +791,11 @@ struct MenuItemRow: View {
     MenuDetailPreview(
         menu: DayMenu(
             id: 99,
-            breadCount: 15,
             items: [
-                "Dal khichdi with garlic / ginger and pepper",
-                "Rice bowl using black, pinto, 1/2 cup rice, avocado, jalapeño",
-                "10 chapathis palak paneer for dinner",
-                "5 parathas"
+                MenuItem(name: "Dal khichdi with garlic / ginger and pepper"),
+                MenuItem(name: "Rice bowl using black, pinto, 1/2 cup rice, avocado, jalapeño"),
+                MenuItem(name: "chapathis", category: .bread, quantity: 10),
+                MenuItem(name: "parathas", category: .bread, quantity: 5)
             ],
             chaiCount: 2
         ),
@@ -682,12 +812,13 @@ private struct MenuDetailPreview: View {
             ScrollView {
                 VStack(spacing: 16) {
                     MenuHeaderView(menu: menu)
-                    MenuItemsListView(menu: menu)
+                    MenuItemsListView(day: .sunday, menu: menu)
                 }
                 .padding()
             }
             .navigationTitle(title)
         }
+        .environment(MenuStore(sampleData: true))
     }
 }
 
@@ -695,11 +826,10 @@ private struct MenuDetailPreview: View {
     MenuDetailPreview(
         menu: DayMenu(
             id: 9,
-            breadCount: 0,
             items: [
-                "Tofu chilly",
-                "Egg fried rice",
-                "3 veg sandwiches"
+                MenuItem(name: "Tofu chilly"),
+                MenuItem(name: "Egg fried rice"),
+                MenuItem(name: "3 veg sandwiches")
             ],
             chaiCount: 2
         ),

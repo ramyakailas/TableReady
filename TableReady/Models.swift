@@ -21,16 +21,94 @@ enum MenuEffort: String, CaseIterable {
     }
 }
 
+// MARK: - Menu Item
+
+/// One dish within a DayMenu, tagged with its category (curry, bread,
+/// rice, etc.) so a day's menu can be edited one category at a time
+/// instead of as one flat list. `quantity` is mainly meaningful for
+/// bread items (e.g. "10 chapathis") — nil just means "one of these".
+struct MenuItem: Identifiable, Codable, Hashable {
+    var id: UUID
+    var name: String
+    var category: DishCategory
+    var quantity: Int?
+
+    init(id: UUID = UUID(), name: String, category: DishCategory? = nil, quantity: Int? = nil) {
+        self.id = id
+        self.name = name
+        self.category = category ?? DishCategory.categorize(name)
+        self.quantity = quantity
+    }
+
+    /// Splits raw free-text menu item strings (as typed in Quick Menu, or
+    /// parsed from markdown/older saved data) into structured MenuItems.
+    /// Only splits on "&" (e.g. "10 chapathis & 3 parathas") — never on
+    /// "and", since that word shows up inside ordinary dish descriptions
+    /// (e.g. "garlic / ginger and pepper") and splitting there would break
+    /// a single dish into nonsense fragments.
+    static func parseItems(from rawText: String) -> [MenuItem] {
+        rawText.components(separatedBy: "&").compactMap { segment in
+            let trimmed = segment.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty else { return nil }
+            let (quantity, name) = extractLeadingQuantity(trimmed)
+            guard !name.isEmpty else { return nil }
+            return MenuItem(name: name, quantity: quantity)
+        }
+    }
+
+    /// Extracts a leading quantity phrase ("5 ", "1 batch of ", "5-6 ")
+    /// from raw item text, returning the number and the remaining name.
+    private static func extractLeadingQuantity(_ text: String) -> (Int?, String) {
+        let pattern = #"^(\d+)(-\d+)?\s+(batch(es)?\s+of\s+)?"#
+        guard let range = text.range(of: pattern, options: .regularExpression) else {
+            return (nil, text)
+        }
+        let digits = text[range].prefix(while: \.isNumber)
+        var name = text
+        name.removeSubrange(range)
+        return (Int(digits), name.trimmingCharacters(in: .whitespaces))
+    }
+
+    /// Migrates old-format menu data (a flat list of raw item strings plus
+    /// a separate bread count) into structured items. Parses each raw
+    /// string via `parseItems`, then reconciles the total against the old
+    /// bread count: if free-text parsing didn't capture enough bread
+    /// quantity (e.g. "Soya kadhi pakoda - 7 chapathis" has its quantity
+    /// embedded mid-sentence, not at the start), a generic "Bread" item
+    /// makes up the shortfall so effort calculation stays accurate.
+    static func migrating(rawItems: [String], targetBreadCount: Int) -> [MenuItem] {
+        var items = rawItems.flatMap { parseItems(from: $0) }
+        let parsedBreadCount = items.filter { $0.category == .bread }.reduce(0) { $0 + ($1.quantity ?? 1) }
+        let shortfall = targetBreadCount - parsedBreadCount
+        if shortfall > 0 {
+            items.append(MenuItem(name: "Bread", category: .bread, quantity: shortfall))
+        }
+        return items
+    }
+}
+
 // MARK: - Menu
 
 struct DayMenu: Identifiable, Codable {
     var id: Int
-    var breadCount: Int
-    var items: [String]
+    var items: [MenuItem]
     var chaiCount: Int
 
-    enum CodingKeys: String, CodingKey {
-        case id, breadCount, items, chaiCount
+    init(id: Int, items: [MenuItem], chaiCount: Int) {
+        self.id = id
+        self.items = items
+        self.chaiCount = chaiCount
+    }
+
+    /// Total bread quantity, derived from bread-category items instead of
+    /// being tracked as a separate number — so bread is just another
+    /// swappable slot like curry or the lunch item.
+    var breadCount: Int {
+        items.filter { $0.category == .bread }.reduce(0) { $0 + ($1.quantity ?? 1) }
+    }
+
+    func items(in category: DishCategory) -> [MenuItem] {
+        items.filter { $0.category == category }
     }
 
     /// Effort is computed from bread count (chapathis + parathas + theplas).
@@ -40,7 +118,7 @@ struct DayMenu: Identifiable, Codable {
     ///   11+ breads  → heavy
     var effort: MenuEffort {
         let hasDeepFrying = items.contains { item in
-            let lower = item.lowercased()
+            let lower = item.name.lowercased()
             return lower.contains("pakod")
                 || lower.contains("manchurian")
                 || lower.contains("egg roll")
@@ -56,6 +134,33 @@ struct DayMenu: Identifiable, Codable {
         default:
             return .heavy
         }
+    }
+
+    // MARK: Codable (migrates the old {breadCount: Int, items: [String]} shape)
+
+    private enum CodingKeys: String, CodingKey {
+        case id, items, chaiCount, breadCount
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        chaiCount = try container.decode(Int.self, forKey: .chaiCount)
+
+        if let structuredItems = try? container.decode([MenuItem].self, forKey: .items) {
+            items = structuredItems
+        } else {
+            let rawItems = try container.decodeIfPresent([String].self, forKey: .items) ?? []
+            let oldBreadCount = try container.decodeIfPresent(Int.self, forKey: .breadCount) ?? 0
+            items = MenuItem.migrating(rawItems: rawItems, targetBreadCount: oldBreadCount)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(items, forKey: .items)
+        try container.encode(chaiCount, forKey: .chaiCount)
     }
 }
 
@@ -225,20 +330,21 @@ struct MenuParser {
         var currentItems: [String] = []
         var currentChaiCount = 0
 
+        func saveCurrentMenu() {
+            guard let id = currentID else { return }
+            menus.append(DayMenu(
+                id: id,
+                items: MenuItem.migrating(rawItems: currentItems, targetBreadCount: currentBreadCount),
+                chaiCount: currentChaiCount
+            ))
+        }
+
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
 
             // Match menu headers like: ## 1 | light — 5 breads
             if trimmed.hasPrefix("## ") && trimmed.contains("|") {
-                // Save previous menu if any
-                if let id = currentID {
-                    menus.append(DayMenu(
-                        id: id,
-                        breadCount: currentBreadCount,
-                        items: currentItems,
-                        chaiCount: currentChaiCount
-                    ))
-                }
+                saveCurrentMenu()
 
                 // Parse new header
                 let afterHash = trimmed.dropFirst(3)
@@ -274,28 +380,14 @@ struct MenuParser {
 
             } else if trimmed == "---" && currentID != nil {
                 // End marker — save current menu
-                if let id = currentID {
-                    menus.append(DayMenu(
-                        id: id,
-                        breadCount: currentBreadCount,
-                        items: currentItems,
-                        chaiCount: currentChaiCount
-                    ))
-                }
+                saveCurrentMenu()
                 currentID = nil
                 currentItems = []
             }
         }
 
         // Save last menu if file doesn't end with ---
-        if let id = currentID {
-            menus.append(DayMenu(
-                id: id,
-                breadCount: currentBreadCount,
-                items: currentItems,
-                chaiCount: currentChaiCount
-            ))
-        }
+        saveCurrentMenu()
 
         return menus
     }
@@ -381,10 +473,10 @@ struct SampleData {
         for day in weeklyPlan {
             guard let menu = day.menu else { continue }
             for item in menu.items {
-                let cleaned = Dish.cleanedName(from: item)
-                if !cleaned.isEmpty && !seen.contains(cleaned.lowercased()) {
-                    seen.insert(cleaned.lowercased())
-                    items.append(GroceryItem(name: cleaned, fromMenu: "Menu #\(menu.id)"))
+                let key = item.name.lowercased()
+                if !seen.contains(key) {
+                    seen.insert(key)
+                    items.append(GroceryItem(name: item.name, fromMenu: "Menu #\(menu.id)"))
                 }
             }
         }

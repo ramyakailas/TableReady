@@ -108,10 +108,10 @@ class MenuStore {
         var seen = Set<String>()
         for menu in menus {
             for item in menu.items {
-                let cleaned = Dish.cleanedName(from: item)
-                if !cleaned.isEmpty && !seen.contains(cleaned.lowercased()) {
-                    seen.insert(cleaned.lowercased())
-                    dishes.append(Dish(name: cleaned))
+                let key = item.name.lowercased()
+                if !item.name.isEmpty && !seen.contains(key) {
+                    seen.insert(key)
+                    dishes.append(Dish(name: item.name, category: item.category))
                 }
             }
         }
@@ -206,14 +206,32 @@ class MenuStore {
         save()
     }
 
-    func buildCustomMenu(from selectedDishes: [Dish], breadCount: Int, chaiCount: Int, assignToDay day: DayOfWeek? = nil) {
+    func buildCustomMenu(from items: [MenuItem], chaiCount: Int, assignToDay day: DayOfWeek? = nil) {
         let menu = DayMenu(
             id: nextMenuID,
-            breadCount: breadCount,
-            items: selectedDishes.map(\.name),
+            items: items,
             chaiCount: chaiCount
         )
         addMenu(menu, assignToDay: day)
+    }
+
+    /// Replaces just the dishes in one category for a specific day, leaving
+    /// every other category untouched. Forks a brand-new menu into the
+    /// library and assigns it to that day, rather than mutating the shared
+    /// menu in place — so if another day happens to use the same menu, it
+    /// isn't silently changed too.
+    func replaceItems(_ newItems: [MenuItem], in category: DishCategory, forDay day: DayOfWeek) {
+        guard let planIndex = weeklyPlan.firstIndex(where: { $0.dayOfWeek == day }),
+              let currentMenu = weeklyPlan[planIndex].menu else { return }
+
+        var updatedItems = currentMenu.items
+        updatedItems.removeAll { $0.category == category }
+        updatedItems.append(contentsOf: newItems)
+
+        let forkedMenu = DayMenu(id: nextMenuID, items: updatedItems, chaiCount: currentMenu.chaiCount)
+        menus.append(forkedMenu)
+        weeklyPlan[planIndex].menu = forkedMenu
+        save()
     }
 
     // MARK: - Family Member Operations

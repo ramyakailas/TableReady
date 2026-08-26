@@ -63,7 +63,7 @@ struct MenuDetailView: View {
                                 .frame(width: 24, height: 24)
                                 .background(AppTheme.turmeric.opacity(0.15))
                                 .clipShape(Circle())
-                            Text(item)
+                            Text(item.name)
                                 .font(.body)
                             Spacer()
                         }
