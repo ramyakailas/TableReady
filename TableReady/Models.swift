@@ -176,7 +176,7 @@ struct Dish: Identifiable, Codable, Hashable {
 
 // MARK: - Family Member
 
-struct FamilyMember: Identifiable {
+struct FamilyMember: Identifiable, Codable {
     let id: UUID
     var name: String
     var emoji: String
@@ -381,9 +381,10 @@ struct SampleData {
         for day in weeklyPlan {
             guard let menu = day.menu else { continue }
             for item in menu.items {
-                if !seen.contains(item) {
-                    seen.insert(item)
-                    items.append(GroceryItem(name: item, fromMenu: "Menu #\(menu.id)"))
+                let cleaned = Dish.cleanedName(from: item)
+                if !cleaned.isEmpty && !seen.contains(cleaned.lowercased()) {
+                    seen.insert(cleaned.lowercased())
+                    items.append(GroceryItem(name: cleaned, fromMenu: "Menu #\(menu.id)"))
                 }
             }
         }

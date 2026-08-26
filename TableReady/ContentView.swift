@@ -31,7 +31,7 @@ struct ContentView: View {
                 }
                 .tag(2)
 
-            FamilyView(members: SampleData.familyMembers)
+            FamilyView()
                 .tabItem {
                     Label("Family", systemImage: "person.3")
                 }
@@ -67,5 +67,6 @@ struct ContentView: View {
 }
 
 #Preview("Family Tab") {
-    FamilyView(members: SampleData.familyMembers)
+    FamilyView()
+        .environment(MenuStore(sampleData: true))
 }
