@@ -134,8 +134,39 @@ class MenuStore {
         menus.append(menu)
         if let day {
             assignMenuByID(menu.id, toDay: day)
+        } else if let autoDay = bestOpenDay(for: menu) {
+            assignMenuByID(menu.id, toDay: autoDay)
         }
         save()
+    }
+
+    /// Picks the best open (unassigned) day for a newly created menu that
+    /// wasn't explicitly assigned a day. Prefers a day whose immediate
+    /// neighbors don't already carry the same effort level, so heavy-cooking
+    /// days don't land back-to-back. Returns nil if the week is already full.
+    private func bestOpenDay(for menu: DayMenu) -> DayOfWeek? {
+        let emptyDays = weeklyPlan.filter { $0.menu == nil }.map(\.dayOfWeek)
+        guard !emptyDays.isEmpty else { return nil }
+
+        func hasSameEffortNeighbor(_ day: DayOfWeek) -> Bool {
+            for rawNeighbor in [day.rawValue - 1, day.rawValue + 1] {
+                guard let neighborDay = DayOfWeek(rawValue: rawNeighbor) else { continue }
+                if let neighborMenu = weeklyPlan.first(where: { $0.dayOfWeek == neighborDay })?.menu,
+                   neighborMenu.effort == menu.effort {
+                    return true
+                }
+            }
+            return false
+        }
+
+        return emptyDays.sorted { a, b in
+            let aConflict = hasSameEffortNeighbor(a)
+            let bConflict = hasSameEffortNeighbor(b)
+            if aConflict != bConflict {
+                return !aConflict && bConflict
+            }
+            return a.rawValue < b.rawValue
+        }.first
     }
 
     func assignMenu(_ menu: DayMenu, toDay day: DayOfWeek) {
