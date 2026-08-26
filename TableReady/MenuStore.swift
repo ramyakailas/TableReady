@@ -14,6 +14,7 @@ class MenuStore {
     var weeklyPlan: [DayPlan] = []
     var dishes: [Dish] = []
     var familyMembers: [FamilyMember] = []
+    var groceryItems: [GroceryItem] = []
 
     // MARK: - Paths
 
@@ -29,6 +30,7 @@ class MenuStore {
         var weeklyPlan: [DayPlan]
         var dishes: [Dish]?
         var familyMembers: [FamilyMember]?
+        var groceryItems: [GroceryItem]?
     }
 
     // MARK: - Initialization
@@ -43,6 +45,7 @@ class MenuStore {
             menus = SampleData.menus
             weeklyPlan = SampleData.weeklyPlan
             familyMembers = SampleData.familyMembers
+            groceryItems = SampleData.groceryItems
             seedDishesFromMenus()
         } else {
             loadData()
@@ -58,6 +61,7 @@ class MenuStore {
             weeklyPlan = stored.weeklyPlan
             dishes = stored.dishes ?? []
             familyMembers = stored.familyMembers ?? []
+            groceryItems = stored.groceryItems ?? []
             if dishes.isEmpty {
                 seedDishesFromMenus()
             } else {
@@ -116,7 +120,7 @@ class MenuStore {
     // MARK: - Saving
 
     private func save() {
-        let storeData = StoreData(menus: menus, weeklyPlan: weeklyPlan, dishes: dishes, familyMembers: familyMembers)
+        let storeData = StoreData(menus: menus, weeklyPlan: weeklyPlan, dishes: dishes, familyMembers: familyMembers, groceryItems: groceryItems)
         if let data = try? JSONEncoder().encode(storeData) {
             try? data.write(to: jsonFileURL, options: .atomic)
         }
@@ -230,21 +234,28 @@ class MenuStore {
         save()
     }
 
-    // MARK: - Grocery Items (derived)
+    // MARK: - Grocery Item Operations
 
-    var groceryItems: [GroceryItem] {
-        var items: [GroceryItem] = []
-        var seen = Set<String>()
-        for day in weeklyPlan {
-            guard let menu = day.menu else { continue }
-            for item in menu.items {
-                let cleaned = Dish.cleanedName(from: item)
-                if !cleaned.isEmpty && !seen.contains(cleaned.lowercased()) {
-                    seen.insert(cleaned.lowercased())
-                    items.append(GroceryItem(name: cleaned, fromMenu: "Menu #\(menu.id)"))
-                }
-            }
+    func addGroceryItem(_ item: GroceryItem) {
+        groceryItems.append(item)
+        save()
+    }
+
+    func removeGroceryItem(_ item: GroceryItem) {
+        groceryItems.removeAll { $0.id == item.id }
+        save()
+    }
+
+    func toggleGroceryItemPurchased(_ item: GroceryItem) {
+        guard let index = groceryItems.firstIndex(where: { $0.id == item.id }) else { return }
+        groceryItems[index].isPurchased.toggle()
+        save()
+    }
+
+    func setAllGroceryItemsPurchased(_ purchased: Bool) {
+        for index in groceryItems.indices {
+            groceryItems[index].isPurchased = purchased
         }
-        return items
+        save()
     }
 }

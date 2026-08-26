@@ -6,42 +6,61 @@
 import SwiftUI
 
 struct GroceryListView: View {
-    @State var items: [GroceryItem]
+    @Environment(MenuStore.self) private var store
+    @State private var showAddItem = false
 
-    var purchasedCount: Int {
-        items.filter(\.isPurchased).count
+    private var purchasedCount: Int {
+        store.groceryItems.filter(\.isPurchased).count
     }
 
     var body: some View {
         NavigationStack {
             Group {
-                if items.isEmpty {
+                if store.groceryItems.isEmpty {
                     ContentUnavailableView {
                         Label("No Items", systemImage: "cart")
                             .foregroundColor(AppTheme.chaiBrown)
                     } description: {
-                        Text("Items from your weekly menus will appear here")
+                        Text("Add items you need to buy")
                             .foregroundColor(AppTheme.chaiBrownMuted)
+                    } actions: {
+                        Button("Add Item") {
+                            showAddItem = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(AppTheme.chaiBrown)
                     }
                 } else {
                     List {
                         Section {
-                            ProgressView(value: Double(purchasedCount), total: Double(items.count))
+                            ProgressView(value: Double(purchasedCount), total: Double(store.groceryItems.count))
                                 .tint(AppTheme.herbGreen)
-                            Text("\(purchasedCount) of \(items.count) items purchased")
+                            Text("\(purchasedCount) of \(store.groceryItems.count) items purchased")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
 
                         Section("To Buy") {
-                            ForEach($items.filter({ !$0.wrappedValue.isPurchased })) { $item in
-                                GroceryRowView(item: $item)
+                            ForEach(store.groceryItems.filter { !$0.isPurchased }) { item in
+                                GroceryRowView(item: item)
+                            }
+                            .onDelete { offsets in
+                                let toBuy = store.groceryItems.filter { !$0.isPurchased }
+                                for index in offsets {
+                                    store.removeGroceryItem(toBuy[index])
+                                }
                             }
                         }
 
                         Section("Purchased") {
-                            ForEach($items.filter({ $0.wrappedValue.isPurchased })) { $item in
-                                GroceryRowView(item: $item)
+                            ForEach(store.groceryItems.filter(\.isPurchased)) { item in
+                                GroceryRowView(item: item)
+                            }
+                            .onDelete { offsets in
+                                let purchased = store.groceryItems.filter(\.isPurchased)
+                                for index in offsets {
+                                    store.removeGroceryItem(purchased[index])
+                                }
                             }
                         }
                     }
@@ -53,15 +72,14 @@ struct GroceryListView: View {
             .toolbar(content: {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
+                        Button("Add Item", systemImage: "plus") {
+                            showAddItem = true
+                        }
                         Button("Uncheck All", systemImage: "arrow.counterclockwise") {
-                            for i in items.indices {
-                                items[i].isPurchased = false
-                            }
+                            store.setAllGroceryItemsPurchased(false)
                         }
                         Button("Check All", systemImage: "checkmark.circle") {
-                            for i in items.indices {
-                                items[i].isPurchased = true
-                            }
+                            store.setAllGroceryItemsPurchased(true)
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
@@ -69,17 +87,22 @@ struct GroceryListView: View {
                     .accessibilityLabel("List Actions")
                 }
             })
+            .sheet(isPresented: $showAddItem) {
+                AddGroceryItemView()
+                    .environment(store)
+            }
         }
     }
 }
 
 struct GroceryRowView: View {
-    @Binding var item: GroceryItem
+    @Environment(MenuStore.self) private var store
+    let item: GroceryItem
 
     var body: some View {
         Button {
             withAnimation {
-                item.isPurchased.toggle()
+                store.toggleGroceryItemPurchased(item)
             }
         } label: {
             HStack {
@@ -105,30 +128,72 @@ struct GroceryRowView: View {
     }
 }
 
+// MARK: - Add Grocery Item
+
+struct AddGroceryItemView: View {
+    @Environment(MenuStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var name = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Item Name") {
+                    TextField("e.g. Paneer", text: $name)
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(AppTheme.warmCream)
+            .navigationTitle("New Grocery Item")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        let trimmed = name.trimmingCharacters(in: .whitespaces)
+                        store.addGroceryItem(GroceryItem(name: trimmed))
+                        dismiss()
+                    }
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .fontWeight(.semibold)
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Previews
 
 #Preview("Full Grocery List") {
-    GroceryListView(items: SampleData.groceryItems)
+    GroceryListView()
+        .environment(MenuStore(sampleData: true))
 }
 
 #Preview("Empty Grocery List") {
-    GroceryListView(items: [])
+    let store = MenuStore(sampleData: true)
+    store.groceryItems = []
+    return GroceryListView()
+        .environment(store)
 }
 
-#Preview("All Purchased") {
-    GroceryListView(items: SampleData.groceryItems.map { item in
-        var purchased = item
-        purchased.isPurchased = true
-        return purchased
-    })
+#Preview("Add Grocery Item") {
+    AddGroceryItemView()
+        .environment(MenuStore(sampleData: true))
 }
 
 #Preview("Grocery Row - Unpurchased") {
-    GroceryRowView(item: .constant(GroceryItem(name: "Paneer", fromMenu: "Menu #3")))
+    GroceryRowView(item: GroceryItem(name: "Paneer", fromMenu: "Menu #3"))
         .padding()
+        .environment(MenuStore(sampleData: true))
 }
 
 #Preview("Grocery Row - Purchased") {
-    GroceryRowView(item: .constant(GroceryItem(name: "Chapathis", isPurchased: true, fromMenu: "Menu #7")))
+    GroceryRowView(item: GroceryItem(name: "Chapathis", isPurchased: true, fromMenu: "Menu #7"))
         .padding()
+        .environment(MenuStore(sampleData: true))
 }

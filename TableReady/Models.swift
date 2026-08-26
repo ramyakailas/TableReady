@@ -192,7 +192,7 @@ struct FamilyMember: Identifiable, Codable {
 
 // MARK: - Grocery Item
 
-struct GroceryItem: Identifiable {
+struct GroceryItem: Identifiable, Codable {
     let id: UUID
     var name: String
     var isPurchased: Bool

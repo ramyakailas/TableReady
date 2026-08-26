@@ -19,7 +19,7 @@ struct ContentView: View {
                 }
                 .tag(0)
 
-            GroceryListView(items: store.groceryItems)
+            GroceryListView()
                 .tabItem {
                     Label("Groceries", systemImage: "cart")
                 }
@@ -63,7 +63,8 @@ struct ContentView: View {
 }
 
 #Preview("Groceries Tab") {
-    GroceryListView(items: SampleData.groceryItems)
+    GroceryListView()
+        .environment(MenuStore(sampleData: true))
 }
 
 #Preview("Family Tab") {
