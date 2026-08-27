@@ -27,7 +27,9 @@ struct CustomMenuBuilderView: View {
     }
 
     private var availableDishes: [Dish] {
-        let available = store.dishes.filter { !isSelected($0) }
+        // Newest-added dishes first, so a dish you just added shows up
+        // right away instead of being buried under older ones.
+        let available = store.dishes.reversed().filter { !isSelected($0) }
         if searchText.isEmpty {
             return available
         }

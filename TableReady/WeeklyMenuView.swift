@@ -635,7 +635,9 @@ struct CategoryItemPickerView: View {
     }
 
     private var availableDishes: [Dish] {
-        store.dishes.filter { $0.category == category }
+        // Newest-added dishes first, so a dish you just added shows up
+        // right away instead of being buried under older ones.
+        Array(store.dishes.filter { $0.category == category }.reversed())
     }
 
     private func isSelected(_ dish: Dish) -> Bool {
