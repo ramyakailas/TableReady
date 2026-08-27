@@ -448,6 +448,45 @@ struct SampleData {
     - Palak paneer
     - 12 chapathis
     - 2 chais
+
+    ## 8 | heavy — 12 breads
+
+    - Salad for lunch
+    - khichdi
+    - Dal makhani
+    - 8 chapathis
+    - 4 parathas
+    - 3 chais
+
+    ## 9 | light — 4 breads
+
+    - Tofu - veggies Poha
+    - Gobi manchurian / Egg pulav
+    - 4 parathas
+    - 2 chais
+
+    ## 10 | light — 0 breads
+
+    - Dhoodhi spinach muthiya
+    - Paneer tikka masala
+    - Besan cheela mix
+    - 2 chais
+    - 2 buttermilk
+
+    ## 11 | light — 0 breads
+
+    - Doodhi Muthiya
+    - Anda pulav / Veg Kurma
+    - Pineapple pani puri
+    - 3 chais
+
+    ## 12 | heavy — 14 breads
+
+    - Methi Muthiya
+    - Gongura chutney
+    - 14 Dhoodi thepla
+    - Mix veg curry
+    - 3 chais
     """
 
     static let menus: [DayMenu] = MenuParser.parse(sampleMarkdown)
