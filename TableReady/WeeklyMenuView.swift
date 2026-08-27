@@ -11,6 +11,7 @@ struct WeeklyMenuView: View {
     @State private var showWeeklyOverview = true
     @State private var showAddMenu = false
     @State private var showCustomBuilder = false
+    @State private var showImportMenus = false
     @State private var dayForMenuPicker: DayOfWeek?
 
     var body: some View {
@@ -36,6 +37,11 @@ struct WeeklyMenuView: View {
                         } label: {
                             Label("Build from Dishes", systemImage: "book")
                         }
+                        Button {
+                            showImportMenus = true
+                        } label: {
+                            Label("Import Menus", systemImage: "square.and.arrow.down")
+                        }
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -58,6 +64,10 @@ struct WeeklyMenuView: View {
             }
             .sheet(isPresented: $showCustomBuilder) {
                 CustomMenuBuilderView()
+                    .environment(store)
+            }
+            .sheet(isPresented: $showImportMenus) {
+                ImportMenuView()
                     .environment(store)
             }
             .sheet(item: $dayForMenuPicker) { day in

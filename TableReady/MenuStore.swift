@@ -5,6 +5,12 @@
 
 import Foundation
 
+struct MenuImportResult {
+    let menusAdded: Int
+    let menusSkipped: Int
+    let dishesAdded: Int
+}
+
 @Observable
 class MenuStore {
 
@@ -204,6 +210,52 @@ class MenuStore {
     func removeDish(_ dish: Dish) {
         dishes.removeAll { $0.id == dish.id }
         save()
+    }
+
+    /// Parses a markdown-formatted menu set (same format as the bundled seed
+    /// data — see `MenuParser`) and merges it into the existing library.
+    /// Each new menu is auto-assigned to an open day exactly like a manually
+    /// built menu (`addMenu`'s `bestOpenDay` logic), and any dish name that
+    /// isn't already in the Dish Library gets added — so imported dishes
+    /// show up in future menu building, not just buried inside one menu.
+    /// A menu whose set of dish names exactly matches one already in the
+    /// library is skipped rather than imported as a duplicate.
+    func importMenus(from markdown: String) -> MenuImportResult {
+        let parsed = MenuParser.parse(markdown)
+        var existingItemSets = Set(menus.map { Set($0.items.map { $0.name.lowercased() }) })
+        var dishNamesSeen = Set(dishes.map { $0.name.lowercased() })
+
+        var menusAdded = 0
+        var menusSkipped = 0
+        var dishesAdded = 0
+
+        for parsedMenu in parsed {
+            let itemSet = Set(parsedMenu.items.map { $0.name.lowercased() })
+            guard !itemSet.isEmpty, !existingItemSets.contains(itemSet) else {
+                menusSkipped += 1
+                continue
+            }
+
+            var menu = parsedMenu
+            menu.id = nextMenuID
+            addMenu(menu, assignToDay: nil)
+            existingItemSets.insert(itemSet)
+            menusAdded += 1
+
+            for item in menu.items {
+                let key = item.name.lowercased()
+                guard !key.isEmpty, !dishNamesSeen.contains(key) else { continue }
+                dishNamesSeen.insert(key)
+                dishes.append(Dish(name: item.name, category: item.category))
+                dishesAdded += 1
+            }
+        }
+
+        if dishesAdded > 0 {
+            save()
+        }
+
+        return MenuImportResult(menusAdded: menusAdded, menusSkipped: menusSkipped, dishesAdded: dishesAdded)
     }
 
     func buildCustomMenu(from items: [MenuItem], chaiCount: Int, assignToDay day: DayOfWeek? = nil) {
