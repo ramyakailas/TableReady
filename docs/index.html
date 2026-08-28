@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TableReady Support</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #FAF6F0;
+    --text: #3E2C23;
+    --text-muted: #6B5A4E;
+    --accent: #B5651D;
+    --card-bg: #FFFFFF;
+    --border: #E8DED2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1C1815;
+      --text: #F0E9E0;
+      --text-muted: #B9AA9C;
+      --accent: #E8A054;
+      --card-bg: #262019;
+      --border: #3A2F26;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .wrap {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 56px 24px 80px;
+  }
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    color: var(--text-muted);
+    margin-top: 0;
+    margin-bottom: 40px;
+  }
+  h2 {
+    font-size: 1.15rem;
+    margin-top: 40px;
+    margin-bottom: 12px;
+  }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  a:hover { text-decoration: underline; }
+  ul {
+    padding-left: 20px;
+  }
+  li { margin-bottom: 8px; }
+  footer {
+    margin-top: 56px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>TableReady Support</h1>
+    <p class="subtitle">Weekly meal planning for iPhone and Mac.</p>
+
+    <div class="card">
+      <p>Have a question, found a bug, or want to suggest a feature? Reach out and we'll get back to you.</p>
+      <p>Email: <a href="mailto:ramyakailas99@gmail.com">ramyakailas99@gmail.com</a></p>
+    </div>
+
+    <h2>Common questions</h2>
+    <ul>
+      <li><strong>Does TableReady sync my data?</strong> Your menus, dishes, and grocery list are stored on your device. iPhone and Mac each keep their own copy.</li>
+      <li><strong>Can I import a whole week of menus at once?</strong> Yes — use "Import Menus" from the Menu tab and paste a menu set.</li>
+      <li><strong>How is a menu's effort level (light/medium/heavy) decided?</strong> It's calculated automatically from bread count and whether the menu involves deep frying.</li>
+    </ul>
+
+    <h2>Report an issue</h2>
+    <p>You can also open an issue directly on <a href="https://github.com/ramyakailas/TableReady/issues">GitHub</a>.</p>
+
+    <footer>
+      <a href="privacy.html">Privacy Policy</a>
+    </footer>
+  </div>
+</body>
+</html>
